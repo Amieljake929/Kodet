@@ -1,0 +1,76 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300..700&display=swap");
+@import "tailwindcss";
+
+/* ---------- Light theme tokens ---------- */
+:root {
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --grid-line: rgba(0, 0, 0, 0.13);
+  --page-bg: #ffffff;
+  --page-fg: #000000;
+}
+
+/* ---------- Dark theme tokens ----------
+   Tailwind v4 colors are CSS variables, so remapping them here flips every
+   bg-white / text-black / neutral-* class in the whole site. */
+html.dark {
+  color-scheme: dark;
+
+  --grid-line: rgba(255, 255, 255, 0.17);
+  --page-bg: #0a0a0a;
+  --page-fg: #fafafa;
+
+  --color-white: #0a0a0a;
+  --color-black: #fafafa;
+
+  --color-neutral-50: #141414;
+  --color-neutral-100: #1a1a1a;
+  --color-neutral-200: #2a2a2a;
+  --color-neutral-300: #3a3a3a;
+  --color-neutral-400: #6b6b6b;
+  --color-neutral-500: #9a9a9a;
+  --color-neutral-600: #b0b0b0;
+  --color-neutral-700: #cfcfcf;
+  --color-neutral-800: #e2e2e2;
+}
+
+/* Let the grid show through the centered content columns */
+[class*="bg-white/70"] {
+  background-color: color-mix(in oklab, var(--color-white) 25%, transparent);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--page-bg);
+  color: var(--page-fg);
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Circular reveal (View Transitions API) ---------- */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
