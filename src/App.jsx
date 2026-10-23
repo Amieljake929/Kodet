@@ -13,6 +13,7 @@ import SignUp from "./forms/SignUp";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import Chats from "./pages/chats/Chats";
 import Placeholder from "./pages/Placeholder";
 import { placeholderPages } from "./pages/placeholders";
 
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="chats" element={<Chats />} />
           <Route path="settings" element={<Settings />} />
           {placeholderPages.map(({ path, ...props }) => (
             <Route key={path} path={path} element={<Placeholder {...props} />} />

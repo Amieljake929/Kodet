@@ -2,6 +2,7 @@ import { NavLink, Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   LayoutDashboard,
+  MessageSquare,
   Code2,
   StickyNote,
   FolderTree,
@@ -13,6 +14,7 @@ import {
 
 const mainLinks = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/dashboard/chats", label: "Chats", icon: MessageSquare },
 ];
 
 const libraryLinks = [
@@ -51,7 +53,7 @@ function SidebarContent({ onNavigate, showClose, onClose }) {
   return (
     <div className="flex h-full flex-col bg-white">
       <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-neutral-200 px-6">
-        <Link to="/" className="text-[22px] tracking-tight">
+        <Link to="/dashboard" className="text-[22px] tracking-tight">
           Kodet
         </Link>
         {showClose && (

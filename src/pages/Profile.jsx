@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { User, Mail, AtSign, CheckCircle2 } from "lucide-react";
+import { User, Mail, AtSign, CheckCircle2, ImagePlus } from "lucide-react";
 import FormField from "../components/FormField";
+import Avatar from "../components/Avatar";
+import AvatarPicker from "../components/AvatarPicker";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -15,6 +17,9 @@ export default function Profile() {
   });
   const [errors, setErrors] = useState({});
   const [saved, setSaved] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const avatarSeed = user.avatar || user.name || user.email;
 
   const setField = (key) => (e) => {
     setValues((v) => ({ ...v, [key]: e.target.value }));
@@ -41,7 +46,11 @@ export default function Profile() {
     setTimeout(() => setSaved(false), 2500);
   };
 
-  const initial = (values.name || values.email || "?").charAt(0).toUpperCase();
+  const handleAvatarSave = (seed) => {
+    // TODO: send to your backend once it exists
+    updateUser({ avatar: seed });
+    setPickerOpen(false);
+  };
 
   return (
     <motion.div
@@ -55,12 +64,18 @@ export default function Profile() {
       </p>
 
       <div className="mt-10 flex items-center gap-5">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-black text-3xl text-white">
-          {initial}
-        </div>
+        <Avatar seed={avatarSeed} size={80} />
         <div>
           <p className="text-lg">{values.name || "Your name"}</p>
           <p className="text-sm text-neutral-500">{values.email}</p>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="mt-3 inline-flex items-center gap-2 rounded-xl border border-neutral-300 px-4 py-2 text-xs transition-colors hover:bg-neutral-50"
+          >
+            <ImagePlus size={14} />
+            Change avatar
+          </button>
         </div>
       </div>
 
@@ -124,6 +139,13 @@ export default function Profile() {
           </AnimatePresence>
         </div>
       </form>
+
+      <AvatarPicker
+        open={pickerOpen}
+        current={avatarSeed}
+        onClose={() => setPickerOpen(false)}
+        onSave={handleAvatarSave}
+      />
     </motion.div>
   );
 }

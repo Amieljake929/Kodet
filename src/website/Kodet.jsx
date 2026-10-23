@@ -175,7 +175,7 @@ export default function Kodet() {
               />
             </Link>
             <a
-              href="https://github.com"
+              href="https://github.com/Amieljake929/Kodet"
               target="_blank"
               rel="noreferrer"
               className="group flex items-center gap-2 px-8 py-4 text-[16px]"
@@ -368,7 +368,7 @@ export default function Kodet() {
               </Link>
             </motion.div>
             <a
-              href="https://github.com"
+              href="https://github.com/Amieljake929/Kodet"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 px-6 py-3 text-sm transition-colors hover:bg-neutral-900"
