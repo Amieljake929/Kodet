@@ -1,35 +1,51 @@
 @import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300..700&display=swap");
 @import "tailwindcss";
 
-/* ---------- Light theme tokens ---------- */
+/* ---------- Light theme tokens ----------
+   Base color: #f5f0ea (rgb(245, 240, 234)) instead of pure white.
+   --color-white feeds every bg-white / text-white class, so cards, inputs
+   and menus pick up the warm tone too. The light neutrals are warm-tinted
+   and sit slightly darker than the base so hover states, active tabs and
+   borders stay visible. */
 :root {
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-sans: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --grid-line: rgba(0, 0, 0, 0.13);
-  --page-bg: #ffffff;
+  --page-bg: #f5f0ea;
   --page-fg: #000000;
+
+  --color-white: #f5f0ea;
+
+  --color-neutral-50: #efe9e1;
+  --color-neutral-100: #e9e2d8;
+  --color-neutral-200: #ddd5c9;
+  --color-neutral-300: #cdc3b5;
 }
 
 /* ---------- Dark theme tokens ----------
    Tailwind v4 colors are CSS variables, so remapping them here flips every
-   bg-white / text-black / neutral-* class in the whole site. */
+   bg-white / text-black / neutral-* class in the whole site.
+
+   Base color: #1a1a1a (rgb(26, 26, 26)).
+   The neutral scale starts above it so hover states, borders and the
+   segmented tabs (bg-neutral-100 etc.) stay visible against the page. */
 html.dark {
   color-scheme: dark;
 
-  --grid-line: rgba(255, 255, 255, 0.17);
-  --page-bg: #0a0a0a;
+  --grid-line: rgba(255, 255, 255, 0.14);
+  --page-bg: #1a1a1a;
   --page-fg: #fafafa;
 
-  --color-white: #0a0a0a;
+  --color-white: #1a1a1a;
   --color-black: #fafafa;
 
-  --color-neutral-50: #141414;
-  --color-neutral-100: #1a1a1a;
-  --color-neutral-200: #2a2a2a;
-  --color-neutral-300: #3a3a3a;
-  --color-neutral-400: #6b6b6b;
-  --color-neutral-500: #9a9a9a;
-  --color-neutral-600: #b0b0b0;
+  --color-neutral-50: #212121;
+  --color-neutral-100: #292929;
+  --color-neutral-200: #333333;
+  --color-neutral-300: #444444;
+  --color-neutral-400: #727272;
+  --color-neutral-500: #9d9d9d;
+  --color-neutral-600: #b3b3b3;
   --color-neutral-700: #cfcfcf;
   --color-neutral-800: #e2e2e2;
 }

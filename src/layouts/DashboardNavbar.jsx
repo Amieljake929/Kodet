@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Avatar from "../components/Avatar";
 import LoadingOverlay from "../components/LoadingOverlay";
+import ThemeToggle from "../components/ThemeToggle";
 
 const menuLinks = [
   { to: "/dashboard/profile", label: "Profile", icon: User },
@@ -79,7 +80,7 @@ export default function DashboardNavbar({ user, onOpenMenu, onSignOut }) {
           >
             <Menu size={22} />
           </button>
-          <Link to="/" className="text-lg tracking-tight lg:hidden">
+          <Link to="/dashboard" className="text-lg tracking-tight lg:hidden">
             Kodet
           </Link>
 
@@ -143,6 +144,11 @@ export default function DashboardNavbar({ user, onOpenMenu, onSignOut }) {
                       {label}
                     </Link>
                   ))}
+                </div>
+
+                {/* Theme: stays open after toggling so the change is visible */}
+                <div className="mt-2 border-t border-neutral-200 pt-2">
+                  <ThemeToggle variant="menu" />
                 </div>
 
                 <div className="mt-2 border-t border-neutral-200 pt-2">

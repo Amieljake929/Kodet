@@ -1,138 +1,144 @@
-import { useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useOutletContext } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import {
+  Archive,
+  Clock,
+  Info,
   MessageSquare,
+  Pin,
+  PinOff,
   Search,
+  Star,
+  User,
+  UserCheck,
   UserPlus,
   Users,
-  Check,
-  X,
-  Clock,
 } from "lucide-react";
-import Avatar, { GroupAvatar } from "../../components/Avatar";
+import Avatar from "../../components/Avatar";
 import ChatWindow from "./ChatWindow";
+import ChatInfo from "./ChatInfo";
+import ConnectionsPanel from "./ConnectionsPanel";
 import NewGroupModal from "./NewGroupModal";
-import {
-  initialPeople,
-  initialDMs,
-  initialGroups,
-  initialUnread,
-  formatTime,
-} from "./chatData";
+import { EmptyState, btnOutline, btnPrimary } from "./chatUi";
+import GroupBadge from "./GroupBadge";
+import { MAX_PINS } from "./chatOptions";
+import { useChatData } from "./chatStore";
+import { formatDateTime, formatTime } from "./chatData";
 
-const tabs = [
-  { id: "chats", label: "Chats" },
-  { id: "requests", label: "Requests" },
-  { id: "discover", label: "Discover" },
+const categories = [
+  { id: "all", label: "All chats", icon: MessageSquare },
+  { id: "groups", label: "Group chat", icon: Users },
+  { id: "direct", label: "Direct chat", icon: User },
+  { id: "connections", label: "Connections", icon: UserCheck },
+  { id: "scheduled", label: "Scheduled", icon: Clock },
+  { id: "starred", label: "Starred", icon: Star },
+  { id: "archived", label: "Archived", icon: Archive },
 ];
 
-const uid = () => Math.random().toString(36).slice(2, 10);
+const emptyCopy = {
+  all: ["No conversations yet", "Connect with someone to start chatting."],
+  groups: ["No group chats", "Create one with New group."],
+  direct: ["No direct chats", "Connect with someone to start chatting."],
+  starred: ["No starred chats", "Star a chat from its info panel."],
+  archived: ["Nothing archived", "Chats you archive will show up here."],
+};
 
-function EmptyState({ icon: Icon, title, text, action }) {
+function ConversationItem({ conv, meta, active, unread, pinned, onClick, onPin }) {
   return (
-    <div className="flex flex-col items-center px-6 py-14 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-neutral-200">
-        <Icon size={22} />
-      </span>
-      <h3 className="mt-5 text-sm">{title}</h3>
-      <p className="mt-2 max-w-[240px] text-xs leading-relaxed text-neutral-500">
-        {text}
-      </p>
-      {action}
-    </div>
-  );
-}
+    <div className="group relative">
+      <button
+        onClick={onClick}
+        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+          active ? "bg-neutral-100" : "hover:bg-neutral-50"
+        }`}
+      >
+        {conv.type === "group" ? (
+          <GroupBadge iconId={meta.icon} themeId={meta.theme} size={40} />
+        ) : (
+          <Avatar seed={conv.person.avatar} size={40} online={conv.person.online} />
+        )}
 
-function ConversationItem({ conv, active, unread, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
-        active ? "bg-neutral-100" : "hover:bg-neutral-50"
-      }`}
-    >
-      {conv.type === "group" ? (
-        <GroupAvatar size={44} />
-      ) : (
-        <Avatar seed={conv.person.avatar} size={44} online={conv.person.online} />
-      )}
-
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm">{conv.title}</span>
-          {conv.last && (
-            <span className="shrink-0 text-[11px] text-neutral-400">
-              {formatTime(conv.last.at)}
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center justify-between gap-2">
+            <span className="truncate text-[13px]">{conv.title}</span>
+            <span className="flex shrink-0 items-center gap-1 text-[10px] text-neutral-400">
+              {pinned && <Pin size={10} />}
+              {conv.last && formatTime(conv.last.at)}
             </span>
-          )}
-        </span>
-        <span className="mt-0.5 flex items-center justify-between gap-2">
-          <span
-            className={`truncate text-xs ${
-              unread ? "text-black" : "text-neutral-500"
-            }`}
-          >
-            {conv.preview}
           </span>
-          {unread > 0 && (
-            <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-black px-1.5 text-[11px] text-white">
-              {unread}
+          <span className="mt-0.5 flex items-center justify-between gap-2">
+            <span
+              className={`truncate text-[11px] ${
+                unread ? "text-black" : "text-neutral-500"
+              }`}
+            >
+              {conv.preview}
             </span>
-          )}
+            {unread > 0 && (
+              <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-black px-1 text-[10px] text-white">
+                {unread}
+              </span>
+            )}
+          </span>
         </span>
-      </span>
-    </button>
-  );
-}
+      </button>
 
-function PersonRow({ person, subtitle, children }) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl px-3 py-3">
-      <Avatar seed={person.avatar} size={44} online={person.online} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm">{person.name}</p>
-        <p className="truncate text-xs text-neutral-500">
-          {subtitle ?? person.role}
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
+      {/* Quick pin: shows on hover (pointer devices) or keyboard focus */}
+      <button
+        onClick={onPin}
+        aria-label={pinned ? `Unpin ${conv.title}` : `Pin ${conv.title}`}
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-lg border border-neutral-200 bg-white p-1.5 opacity-0 shadow-sm transition-opacity focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:hover)]:group-hover:pointer-events-auto [@media(hover:hover)]:group-hover:opacity-100"
+      >
+        {pinned ? <PinOff size={12} /> : <Pin size={12} />}
+      </button>
     </div>
   );
 }
-
-const btnPrimary =
-  "rounded-lg bg-black px-3 py-1.5 text-xs text-white transition-opacity hover:opacity-80";
-const btnOutline =
-  "rounded-lg border border-neutral-300 px-3 py-1.5 text-xs transition-colors hover:bg-neutral-100";
 
 export default function Chats() {
   const { user } = useOutletContext();
+  const location = useLocation();
+  const {
+    peopleById,
+    connected,
+    incoming,
+    dms,
+    groups,
+    unread,
+    meta,
+    pinned,
+    starred,
+    archived,
+    scheduled,
+    createGroup,
+    markRead,
+    togglePin,
+    cancelScheduled,
+    sendScheduledNow,
+  } = useChatData();
 
-  const [people, setPeople] = useState(initialPeople);
-  const [dms, setDms] = useState(initialDMs);
-  const [groups, setGroups] = useState(initialGroups);
-  const [unread, setUnread] = useState(initialUnread);
-  const [tab, setTab] = useState("chats");
+  // The People page can deep-link here: navigate("/dashboard/chats", { state: { open: "dm:aria" } })
+  const initialKey = location.state?.open ?? null;
+
+  const [category, setCategory] = useState("all");
   const [query, setQuery] = useState("");
-  const [activeKey, setActiveKey] = useState(null);
+  const [activeKey, setActiveKey] = useState(initialKey);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [notice, setNotice] = useState("");
+  const noticeTimer = useRef(null);
+
+  useEffect(() => {
+    if (initialKey) markRead(initialKey);
+    return () => clearTimeout(noticeTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const me = {
     name: user.name,
     avatar: user.avatar || user.name || user.email,
   };
-
-  const peopleById = useMemo(
-    () => Object.fromEntries(people.map((p) => [p.id, p])),
-    [people]
-  );
-  const connected = useMemo(
-    () => people.filter((p) => p.status === "connected"),
-    [people]
-  );
-  const incoming = people.filter((p) => p.status === "incoming");
-  const sent = people.filter((p) => p.status === "pending");
 
   // Conversations = one per connection + every group
   const conversations = useMemo(() => {
@@ -142,6 +148,7 @@ export default function Chats() {
     const items = [
       ...connected.map((p) => ({
         key: `dm:${p.id}`,
+        id: p.id,
         type: "dm",
         title: p.name,
         person: p,
@@ -149,9 +156,11 @@ export default function Chats() {
       })),
       ...groups.map((g) => ({
         key: `group:${g.id}`,
+        id: g.id,
         type: "group",
         title: g.name,
         members: g.members,
+        createdAt: g.createdAt ?? g.messages[0]?.at ?? Date.now(),
         messages: g.messages,
       })),
     ];
@@ -177,295 +186,363 @@ export default function Chats() {
   const q = query.trim().toLowerCase();
   const matches = (text) => text.toLowerCase().includes(q);
 
-  /* ---------------- actions (UI only, no backend) ---------------- */
+  /* ---------------- per-category lists ---------------- */
 
-  const setStatus = (id, status) =>
-    setPeople((ps) => ps.map((p) => (p.id === id ? { ...p, status } : p)));
+  const isArchived = (c) => archived.includes(c.key);
+  const inCategory = (c) => {
+    switch (category) {
+      case "groups":
+        return c.type === "group" && !isArchived(c);
+      case "direct":
+        return c.type === "dm" && !isArchived(c);
+      case "starred":
+        return starred.includes(c.key);
+      case "archived":
+        return isArchived(c);
+      default:
+        return !isArchived(c);
+    }
+  };
 
-  const sendRequest = (id) => setStatus(id, "pending");
-  const cancelRequest = (id) => setStatus(id, "none");
-  const declineRequest = (id) => setStatus(id, "none");
+  const showPinned = ["all", "groups", "direct"].includes(category);
+  const visible = conversations
+    .filter(inCategory)
+    .filter((c) => !q || matches(c.title));
+  const pinnedList = showPinned
+    ? pinned
+        .map((key) => visible.find((c) => c.key === key))
+        .filter(Boolean)
+    : [];
+  const restList = visible.filter((c) => !(showPinned && pinned.includes(c.key)));
 
-  const acceptRequest = (id) => {
-    setStatus(id, "connected");
-    setDms((d) => ({
-      ...d,
-      [id]: [
-        {
-          id: uid(),
-          from: "system",
-          text: `You're now connected with ${peopleById[id].name}`,
-          at: Date.now(),
-        },
-      ],
-    }));
+  const visibleScheduled = scheduled.filter((s) => {
+    if (!q) return true;
+    const title = conversations.find((c) => c.key === s.key)?.title ?? "";
+    return matches(`${title} ${s.text}`);
+  });
+
+  // Badge per category: unread count for chat lists, plain count for the rest
+  const unreadIn = (fn) =>
+    conversations.filter(fn).reduce((sum, c) => sum + (unread[c.key] || 0), 0);
+  const badgeFor = (id) => {
+    switch (id) {
+      case "all":
+        return { n: unreadIn((c) => !isArchived(c)), strong: true };
+      case "groups":
+        return { n: unreadIn((c) => c.type === "group" && !isArchived(c)), strong: true };
+      case "direct":
+        return { n: unreadIn((c) => c.type === "dm" && !isArchived(c)), strong: true };
+      case "connections":
+        return { n: connected.length };
+      case "scheduled":
+        return { n: scheduled.length };
+      case "starred":
+        return { n: starred.length };
+      case "archived":
+        return { n: archived.length };
+      default:
+        return { n: 0 };
+    }
+  };
+
+  const activeCategory = categories.find((c) => c.id === category);
+
+  /* ---------------- actions ---------------- */
+
+  const selectCategory = (id) => {
+    setCategory(id);
+    setQuery("");
   };
 
   const openChat = (key) => {
     setActiveKey(key);
-    setTab("chats");
+    if (category === "connections" || category === "scheduled") setCategory("all");
     setQuery("");
-    setUnread((u) => ({ ...u, [key]: 0 }));
+    markRead(key);
   };
 
-  const sendMessage = (key, text) => {
-    const msg = { id: uid(), from: "me", text, at: Date.now() };
-    const [type, id] = key.split(":");
-    if (type === "dm") {
-      setDms((d) => ({ ...d, [id]: [...(d[id] || []), msg] }));
-    } else {
-      setGroups((gs) =>
-        gs.map((g) => (g.id === id ? { ...g, messages: [...g.messages, msg] } : g))
-      );
+  const handlePin = (key) => {
+    const result = togglePin(key);
+    if (result === "limit") {
+      setNotice(`You can pin up to ${MAX_PINS} chats. Unpin one first.`);
+      clearTimeout(noticeTimer.current);
+      noticeTimer.current = setTimeout(() => setNotice(""), 3000);
     }
   };
 
-  const createGroup = ({ name, memberIds }) => {
-    const id = uid();
-    setGroups((gs) => [
-      {
-        id,
-        name,
-        members: memberIds,
-        messages: [
-          { id: uid(), from: "system", text: "You created this group", at: Date.now() },
-        ],
-      },
-      ...gs,
-    ]);
+  const handleCreateGroup = (payload) => {
+    const id = createGroup(payload);
     setGroupModalOpen(false);
     openChat(`group:${id}`);
   };
 
-  /* ---------------- list content per tab ---------------- */
+  const renderItem = (c) => (
+    <ConversationItem
+      key={c.key}
+      conv={c}
+      meta={meta[c.key] || {}}
+      active={c.key === activeKey}
+      unread={unread[c.key] || 0}
+      pinned={pinned.includes(c.key)}
+      onClick={() => openChat(c.key)}
+      onPin={() => handlePin(c.key)}
+    />
+  );
 
-  const visibleConversations = conversations.filter((c) => !q || matches(c.title));
-  const visiblePeople = (list) =>
-    list.filter((p) => !q || matches(`${p.name} ${p.username}`));
+  const renderList = () => {
+    if (category === "connections") {
+      return (
+        <ConnectionsPanel
+          connections={connected}
+          activeKey={activeKey}
+          query={query}
+          onOpen={(id) => openChat(`dm:${id}`)}
+        />
+      );
+    }
 
-  const renderChats = () =>
-    visibleConversations.length === 0 ? (
-      <EmptyState
-        icon={MessageSquare}
-        title={q ? "No chats found" : "No conversations yet"}
-        text={
-          q
-            ? "Try a different name."
-            : "Connect with someone to start chatting."
-        }
-        action={
-          !q && (
-            <button onClick={() => setTab("discover")} className={`${btnOutline} mt-5`}>
-              Find people
-            </button>
-          )
-        }
-      />
-    ) : (
-      <div className="space-y-1">
-        {visibleConversations.map((c) => (
-          <ConversationItem
-            key={c.key}
-            conv={c}
-            active={c.key === activeKey}
-            unread={unread[c.key] || 0}
-            onClick={() => openChat(c.key)}
+    if (category === "scheduled") {
+      if (visibleScheduled.length === 0) {
+        return (
+          <EmptyState
+            icon={Clock}
+            title={q ? "No scheduled messages found" : "No scheduled messages"}
+            text="Use the clock button next to send to schedule a message for later."
           />
-        ))}
-      </div>
-    );
+        );
+      }
+      return (
+        <div className="space-y-2 px-1">
+          {visibleScheduled.map((s) => {
+            const conv = conversations.find((c) => c.key === s.key);
+            return (
+              <div key={s.id} className="rounded-xl border border-neutral-200 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-[13px]">{conv?.title ?? "Chat"}</span>
+                  <span className="shrink-0 text-[10px] text-neutral-400">
+                    {formatDateTime(s.at)}
+                  </span>
+                </div>
+                <p className="mt-1 truncate text-[11px] text-neutral-500">{s.text}</p>
+                <div className="mt-2.5 flex gap-2">
+                  <button onClick={() => sendScheduledNow(s.id)} className={btnPrimary}>
+                    Send now
+                  </button>
+                  <button onClick={() => cancelScheduled(s.id)} className={btnOutline}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
 
-  const renderRequests = () => {
-    const inc = visiblePeople(incoming);
-    const out = visiblePeople(sent);
-
-    if (inc.length === 0 && out.length === 0) {
+    if (pinnedList.length + restList.length === 0) {
+      const [title, text] = emptyCopy[category] ?? emptyCopy.all;
       return (
         <EmptyState
-          icon={UserPlus}
-          title="No requests"
-          text="Connection requests you send or receive will show up here."
+          icon={activeCategory.icon}
+          title={q ? "No chats found" : title}
+          text={q ? "Try a different name." : text}
+          action={
+            !q && (category === "all" || category === "direct") ? (
+              <Link to="/dashboard/people" className={`${btnOutline} mt-5`}>
+                Find people
+              </Link>
+            ) : null
+          }
         />
       );
     }
 
     return (
-      <div>
-        {inc.length > 0 && (
+      <div className="space-y-0.5">
+        {pinnedList.length > 0 && (
           <>
-            <p className="px-3 pb-1 pt-2 text-xs text-neutral-400">
-              Received ({inc.length})
+            <p className="flex items-center gap-1.5 px-3 pb-1 pt-1 text-[11px] text-neutral-400">
+              <Pin size={10} />
+              Pinned ({pinned.length}/{MAX_PINS})
             </p>
-            {inc.map((p) => (
-              <div key={p.id} className="rounded-xl hover:bg-neutral-50">
-                <PersonRow person={p} subtitle={p.role}>
-                  <button
-                    onClick={() => acceptRequest(p.id)}
-                    aria-label={`Accept ${p.name}`}
-                    className={btnPrimary}
-                  >
-                    <Check size={14} />
-                  </button>
-                  <button
-                    onClick={() => declineRequest(p.id)}
-                    aria-label={`Decline ${p.name}`}
-                    className={btnOutline}
-                  >
-                    <X size={14} />
-                  </button>
-                </PersonRow>
-                {p.note && (
-                  <p className="px-3 pb-3 pl-[68px] text-xs leading-relaxed text-neutral-600">
-                    “{p.note}”
-                  </p>
-                )}
-              </div>
-            ))}
+            {pinnedList.map(renderItem)}
+            {restList.length > 0 && (
+              <p className="px-3 pb-1 pt-3 text-[11px] text-neutral-400">
+                {activeCategory.label}
+              </p>
+            )}
           </>
         )}
-
-        {out.length > 0 && (
-          <>
-            <p className="px-3 pb-1 pt-4 text-xs text-neutral-400">
-              Sent ({out.length})
-            </p>
-            {out.map((p) => (
-              <PersonRow key={p.id} person={p}>
-                <span className="flex items-center gap-1 text-xs text-neutral-500">
-                  <Clock size={12} />
-                  Pending
-                </span>
-                <button onClick={() => cancelRequest(p.id)} className={btnOutline}>
-                  Cancel
-                </button>
-              </PersonRow>
-            ))}
-          </>
-        )}
+        {restList.map(renderItem)}
       </div>
     );
   };
 
-  const renderDiscover = () => {
-    const list = visiblePeople(people);
-    if (list.length === 0) {
-      return (
-        <EmptyState icon={Search} title="No people found" text="Try a different name or username." />
-      );
-    }
-
-    return (
-      <div className="space-y-1">
-        {list.map((p) => (
-          <PersonRow key={p.id} person={p} subtitle={`@${p.username} · ${p.role}`}>
-            {p.status === "none" && (
-              <button onClick={() => sendRequest(p.id)} className={btnPrimary}>
-                <span className="flex items-center gap-1.5">
-                  <UserPlus size={13} />
-                  Connect
-                </span>
-              </button>
-            )}
-            {p.status === "pending" && (
-              <span className="flex items-center gap-1 text-xs text-neutral-500">
-                <Clock size={12} />
-                Requested
-              </span>
-            )}
-            {p.status === "incoming" && (
-              <button onClick={() => acceptRequest(p.id)} className={btnPrimary}>
-                Accept
-              </button>
-            )}
-            {p.status === "connected" && (
-              <button onClick={() => openChat(`dm:${p.id}`)} className={btnOutline}>
-                Message
-              </button>
-            )}
-          </PersonRow>
-        ))}
-      </div>
-    );
-  };
+  const incomingBadge =
+    incoming.length > 0 ? (
+      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-black px-1 text-[10px] text-white">
+        {incoming.length}
+      </span>
+    ) : null;
 
   return (
+    // DashboardLayout gives this page the full width and height (no page scroll)
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="flex h-full min-h-0 flex-col"
     >
-      <h1 className="text-3xl font-medium tracking-tight">Chats</h1>
-      <p className="mt-2 text-sm text-neutral-600">
-        Talk and share ideas with people you're connected with.
-      </p>
+      <h1 className="sr-only">Chats</h1>
 
-      <div className="mt-8 flex h-[calc(100vh-20rem)] min-h-[540px] overflow-hidden rounded-2xl border border-neutral-200 bg-white">
-        {/* Left panel */}
+      <div className="relative flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+        {/* Left rail: categories (wide screens) */}
+        <nav
+          aria-label="Chat categories"
+          className="hidden w-[220px] shrink-0 flex-col border-r border-neutral-200 px-3 py-4 xl:flex"
+        >
+          <button
+            onClick={() => setGroupModalOpen(true)}
+            className="flex items-center justify-center gap-2 rounded-xl border border-neutral-300 px-3 py-2 text-xs transition-colors hover:bg-neutral-100"
+          >
+            <Users size={14} />
+            New group
+          </button>
+
+          <ul className="mt-4 space-y-0.5">
+            {categories.map(({ id, label, icon: Icon }) => {
+              const { n, strong } = badgeFor(id);
+              const active = category === id;
+              return (
+                <li key={id}>
+                  <button
+                    onClick={() => selectCategory(id)}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs transition-colors ${
+                      active ? "bg-neutral-100" : "text-neutral-600 hover:bg-neutral-50"
+                    }`}
+                  >
+                    <Icon size={15} className="shrink-0" />
+                    <span className="flex-1 truncate">{label}</span>
+                    {n > 0 &&
+                      (strong ? (
+                        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-black px-1 text-[10px] text-white">
+                          {n}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-neutral-400">{n}</span>
+                      ))}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="mt-auto border-t border-neutral-200 pt-3">
+            <Link
+              to="/dashboard/people"
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-neutral-600 transition-colors hover:bg-neutral-50"
+            >
+              <UserPlus size={15} className="shrink-0" />
+              <span className="flex-1">Requests &amp; discover</span>
+              {incomingBadge}
+            </Link>
+          </div>
+        </nav>
+
+        {/* List column */}
         <div
           className={`min-h-0 w-full flex-col md:flex md:w-[320px] md:shrink-0 md:border-r md:border-neutral-200 ${
             activeConversation ? "hidden" : "flex"
           }`}
         >
-          <div className="flex items-center justify-between gap-3 px-4 pt-4">
-            <h2 className="text-sm">Messages</h2>
-            <button
-              onClick={() => setGroupModalOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs transition-colors hover:bg-neutral-100"
-            >
-              <Users size={14} />
-              New group
-            </button>
+          <div className="flex items-center justify-between gap-2 px-4 pt-4">
+            <h2 className="text-[13px]">{activeCategory.label}</h2>
+
+            {/* Shortcuts when the left rail is hidden */}
+            <div className="flex items-center gap-2 xl:hidden">
+              <Link
+                to="/dashboard/people"
+                aria-label="Requests and discover people"
+                title="Requests and discover"
+                className="relative rounded-lg border border-neutral-300 p-1.5 transition-colors hover:bg-neutral-100"
+              >
+                <UserPlus size={14} />
+                {incoming.length > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-black px-1 text-[10px] text-white">
+                    {incoming.length}
+                  </span>
+                )}
+              </Link>
+              <button
+                onClick={() => setGroupModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-neutral-300 px-2.5 py-1.5 text-[11px] transition-colors hover:bg-neutral-100"
+              >
+                <Users size={13} />
+                New group
+              </button>
+            </div>
           </div>
 
-          {/* Tabs */}
-          <div className="mx-4 mt-4 flex gap-1 rounded-xl bg-neutral-100 p-1">
-            {tabs.map((t) => {
-              const active = tab === t.id;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => {
-                    setTab(t.id);
-                    setQuery("");
-                  }}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs transition-colors ${
-                    active ? "bg-white shadow-sm" : "text-neutral-500 hover:text-black"
-                  }`}
-                >
-                  {t.label}
-                  {t.id === "requests" && incoming.length > 0 && (
-                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-black px-1 text-[10px] text-white">
-                      {incoming.length}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          {/* Category chips when the left rail is hidden */}
+          <div className="mt-3 flex gap-1.5 overflow-x-auto px-4 pb-1 xl:hidden">
+            {categories.map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => selectCategory(id)}
+                className={`shrink-0 rounded-full border px-3 py-1 text-[11px] transition-colors ${
+                  category === id
+                    ? "border-black bg-black text-white"
+                    : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {/* Search */}
-          <label className="mx-4 mt-3 flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm focus-within:border-black">
-            <Search size={15} className="shrink-0 text-neutral-500" />
+          <label className="mx-4 mt-3 flex items-center gap-2.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 focus-within:border-black">
+            <Search size={14} className="shrink-0 text-neutral-500" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={
-                tab === "chats" ? "Search chats" : "Search people"
+                category === "connections"
+                  ? "Search connections"
+                  : category === "scheduled"
+                  ? "Search scheduled"
+                  : "Search chats"
               }
               className="w-full bg-transparent text-xs outline-none placeholder:text-neutral-400"
             />
           </label>
 
+          <AnimatePresence>
+            {notice && (
+              <motion.p
+                role="status"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mx-4 mt-3 flex items-center gap-2 overflow-hidden rounded-lg bg-neutral-100 px-3 py-2 text-[11px] text-neutral-600"
+              >
+                <Info size={12} className="shrink-0" />
+                {notice}
+              </motion.p>
+            )}
+          </AnimatePresence>
+
           <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-            {tab === "chats" && renderChats()}
-            {tab === "requests" && renderRequests()}
-            {tab === "discover" && renderDiscover()}
+            {renderList()}
           </div>
         </div>
 
-        {/* Right panel */}
+        {/* Chat window.
+            `relative overflow-hidden` makes this the positioning context for the info
+            overlay, so the blur and the panel cover only the conversation area. */}
         <div
-          className={`min-h-0 min-w-0 flex-1 md:flex ${
+          className={`relative min-h-0 min-w-0 flex-1 overflow-hidden md:flex ${
             activeConversation ? "flex flex-col" : "hidden"
           }`}
         >
@@ -475,9 +552,12 @@ export default function Chats() {
                 key={activeConversation.key}
                 conversation={activeConversation}
                 me={me}
-                peopleById={peopleById}
-                onSend={sendMessage}
-                onBack={() => setActiveKey(null)}
+                infoOpen={infoOpen}
+                onToggleInfo={() => setInfoOpen((v) => !v)}
+                onBack={() => {
+                  setActiveKey(null);
+                  setInfoOpen(false);
+                }}
               />
             </div>
           ) : (
@@ -489,6 +569,47 @@ export default function Chats() {
               />
             </div>
           )}
+
+          {/* Info panel: always an overlay on top of the chat (never pushes or resizes it).
+              The chat behind it is blurred. Click the blur to close. */}
+          <AnimatePresence>
+            {infoOpen && activeConversation && (
+              <motion.div
+                key="info-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setInfoOpen(false)}
+                className="absolute inset-0 z-10 bg-white/30 backdrop-blur-sm"
+              />
+            )}
+            {infoOpen && activeConversation && (
+              <motion.aside
+                key="info-panel"
+                aria-label={
+                  activeConversation.type === "group" ? "Group info" : "Chat info"
+                }
+                initial={{ x: 40, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 40, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="absolute inset-y-0 right-0 z-20 flex w-full flex-col border-l border-neutral-200 bg-white shadow-xl sm:w-[340px]"
+              >
+                <ChatInfo
+                  key={activeConversation.key}
+                  conversation={activeConversation}
+                  me={me}
+                  meta={meta[activeConversation.key] || {}}
+                  isPinned={pinned.includes(activeConversation.key)}
+                  isStarred={starred.includes(activeConversation.key)}
+                  isArchived={archived.includes(activeConversation.key)}
+                  pinnedCount={pinned.length}
+                  onClose={() => setInfoOpen(false)}
+                />
+              </motion.aside>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -496,7 +617,7 @@ export default function Chats() {
         open={groupModalOpen}
         connections={connected}
         onClose={() => setGroupModalOpen(false)}
-        onCreate={createGroup}
+        onCreate={handleCreateGroup}
       />
     </motion.div>
   );

@@ -1,13 +1,15 @@
 // Mock data for the Chats UI. Replace with real API data later.
 const now = Date.now();
 const ago = (min) => now - min * 60000;
+const DAY = 60 * 24;
 
 // status: connected | incoming (they asked you) | pending (you asked them) | none
+// connectedAt: when the connection started (connected people only)
 export const initialPeople = [
-  { id: "aria", name: "Aria Chen", username: "aria.dev", role: "Frontend developer", avatar: "Aria", online: true, status: "connected" },
-  { id: "milo", name: "Milo Santos", username: "milo", role: "Backend developer", avatar: "Milo", online: false, status: "connected" },
-  { id: "luna", name: "Luna Reyes", username: "lunar", role: "UI designer", avatar: "Luna", online: true, status: "connected" },
-  { id: "felix", name: "Felix Park", username: "felixp", role: "DevOps engineer", avatar: "Felix", online: false, status: "connected" },
+  { id: "aria", name: "Aria Chen", username: "aria.dev", role: "Frontend developer", avatar: "Aria", online: true, status: "connected", connectedAt: ago(DAY * 45) },
+  { id: "milo", name: "Milo Santos", username: "milo", role: "Backend developer", avatar: "Milo", online: false, status: "connected", connectedAt: ago(DAY * 120) },
+  { id: "luna", name: "Luna Reyes", username: "lunar", role: "UI designer", avatar: "Luna", online: true, status: "connected", connectedAt: ago(DAY * 20) },
+  { id: "felix", name: "Felix Park", username: "felixp", role: "DevOps engineer", avatar: "Felix", online: false, status: "connected", connectedAt: ago(60 * 48) },
   { id: "nova", name: "Nova Ibarra", username: "nova", role: "Full-stack developer", avatar: "Nova", online: true, status: "incoming", note: "Hi! I saw your snippets and would love to share ideas." },
   { id: "orion", name: "Orion Vale", username: "orionv", role: "Mobile developer", avatar: "Orion", online: false, status: "incoming", note: "We're both into React Native. Let's connect!" },
   { id: "willow", name: "Willow Tan", username: "willow", role: "Data engineer", avatar: "Willow", online: false, status: "pending" },
@@ -44,6 +46,7 @@ export const initialGroups = [
     id: "g1",
     name: "Frontend crew",
     members: ["aria", "milo", "luna"],
+    createdAt: ago(60 * 72),
     messages: [
       { id: "g1a", from: "system", text: "You created this group", at: ago(60 * 72) },
       { id: "g1b", from: "aria", text: "Standup notes are in the shared collection.", at: ago(240) },
@@ -58,6 +61,14 @@ export const initialUnread = {
   "group:g1": 2,
 };
 
+// Demo reactions. Key: "<conversationKey>|<messageId>" -> { heart, haha, ok } lists of person ids ("me" = you)
+export const initialReactions = {
+  "group:g1|g1b": { heart: ["milo", "luna"], ok: ["me"] },
+  "group:g1|g1d": { haha: ["aria"] },
+  "dm:aria|a1": { heart: ["me"] },
+  "dm:luna|l1": { heart: ["me", "luna"], haha: [] },
+};
+
 export function formatTime(at) {
   const d = new Date(at);
   const n = new Date();
@@ -67,4 +78,35 @@ export function formatTime(at) {
   const days = (n - d) / 86400000;
   if (days < 7) return d.toLocaleDateString([], { weekday: "short" });
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+export function formatDate(at) {
+  return new Date(at).toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export function formatDateTime(at) {
+  return new Date(at).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function formatAgo(at) {
+  const min = Math.max(0, Math.floor((Date.now() - at) / 60000));
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} min ago`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h} hr ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d} ${d === 1 ? "day" : "days"} ago`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo} ${mo === 1 ? "month" : "months"} ago`;
+  const y = Math.floor(d / 365);
+  return `${y} ${y === 1 ? "year" : "years"} ago`;
 }
