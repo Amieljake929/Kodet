@@ -15,6 +15,16 @@ import { getTheme, REACTIONS } from "./chatOptions";
 import { useChatData } from "./chatStore";
 import { formatDateTime, formatTime } from "./chatData";
 
+// Slim pill scrollbar (Chrome, Edge, Safari). Firefox keeps its default one.
+const scrollbar =
+  "[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 " +
+  "[&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[#fbf2ef]/5 " +
+  "[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#fbf2ef]/25 " +
+  "hover:[&::-webkit-scrollbar-thumb]:bg-[#fbf2ef]/40";
+
+// Brand button colors: cream #fbf2ef on charcoal #1a1a1a
+const accentBtn = "bg-[#fbf2ef] text-[#1a1a1a] transition-opacity hover:opacity-80 disabled:opacity-40";
+
 // Quick schedule options for the composer
 function getPresets() {
   const now = new Date();
@@ -122,8 +132,8 @@ export default function ChatWindow({ conversation, me, infoOpen, onToggleInfo, o
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b border-neutral-200 px-4 py-3">
+      {/* Header: same height as the other columns so the divider lines up */}
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-neutral-200 px-5">
         <button
           onClick={onBack}
           aria-label="Back to conversations"
@@ -160,8 +170,8 @@ export default function ChatWindow({ conversation, me, infoOpen, onToggleInfo, o
           onClick={onToggleInfo}
           aria-label={isGroup ? "Toggle group info" : "Toggle chat info"}
           aria-pressed={infoOpen}
-          className={`rounded-lg p-2 transition-colors hover:bg-neutral-100 ${
-            infoOpen ? "bg-neutral-100" : ""
+          className={`rounded-lg p-2 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-black ${
+            infoOpen ? "bg-neutral-100 text-black" : ""
           }`}
         >
           <MoreVertical size={17} />
@@ -171,7 +181,7 @@ export default function ChatWindow({ conversation, me, infoOpen, onToggleInfo, o
       {/* Messages (background stays neutral; only your bubbles use the theme) */}
       <div
         ref={listRef}
-        className="flex-1 space-y-3 overflow-y-auto px-4 py-5"
+        className={`flex-1 space-y-3 overflow-y-auto px-5 py-6 ${scrollbar}`}
       >
         {conversation.messages.length === 0 && (
           <p className="py-10 text-center text-[11px] text-neutral-500">
@@ -313,8 +323,8 @@ export default function ChatWindow({ conversation, me, infoOpen, onToggleInfo, o
         })}
       </div>
 
-      {/* Composer */}
-      <div className="border-t border-neutral-200 bg-white p-3">
+      {/* Composer (no background so it sits on the page like everything else) */}
+      <div className="shrink-0 border-t border-neutral-200 p-4">
         {note && (
           <p role="status" className="px-1 pb-2 text-[11px] text-neutral-500">
             {note}
@@ -327,7 +337,7 @@ export default function ChatWindow({ conversation, me, infoOpen, onToggleInfo, o
             onChange={(e) => setText(e.target.value)}
             placeholder="Write a message"
             aria-label="Write a message"
-            className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-[13px] outline-none placeholder:text-neutral-400 focus:border-black"
+            className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-[13px] outline-none placeholder:text-neutral-400 focus:border-[#fbf2ef]/40"
           />
 
           {/* Schedule */}
@@ -339,13 +349,13 @@ export default function ChatWindow({ conversation, me, infoOpen, onToggleInfo, o
               aria-label="Schedule message"
               aria-expanded={schedOpen}
               title={text.trim() ? "Schedule message" : "Write a message to schedule it"}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200 transition-colors hover:bg-neutral-50 disabled:opacity-40"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-black disabled:opacity-40"
             >
               <Clock size={15} />
             </button>
 
             {schedOpen && (
-              <div className="absolute bottom-full right-0 z-10 mb-2 w-64 rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg">
+              <div className="absolute bottom-full right-0 z-10 mb-2 w-64 rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-xl">
                 <p className="px-2.5 pb-1 pt-1.5 text-[11px] text-neutral-400">
                   Send later
                 </p>
@@ -354,7 +364,7 @@ export default function ChatWindow({ conversation, me, infoOpen, onToggleInfo, o
                     key={p.label}
                     type="button"
                     onClick={() => handleSchedule(p.at)}
-                    className="flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-neutral-100"
+                    className="flex w-full items-center justify-between gap-3 rounded-xl px-2.5 py-2 text-left text-xs transition-colors hover:bg-neutral-100"
                   >
                     {p.label}
                     <span className="text-[10px] text-neutral-400">
@@ -368,13 +378,13 @@ export default function ChatWindow({ conversation, me, infoOpen, onToggleInfo, o
                     value={customAt}
                     onChange={(e) => setCustomAt(e.target.value)}
                     aria-label="Pick date and time"
-                    className="w-full rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-black"
+                    className="w-full rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#fbf2ef]/40"
                   />
                   <button
                     type="button"
                     disabled={!customValid}
                     onClick={() => handleSchedule(customTime)}
-                    className="mt-2 w-full rounded-lg bg-black px-3 py-1.5 text-xs text-white transition-opacity disabled:opacity-40"
+                    className={`${accentBtn} mt-2 w-full rounded-lg px-3 py-1.5 text-xs`}
                   >
                     Schedule
                   </button>
@@ -383,12 +393,12 @@ export default function ChatWindow({ conversation, me, infoOpen, onToggleInfo, o
             )}
           </div>
 
-          {/* Send button stays black so only the message bubbles follow the theme */}
+          {/* Send button uses the brand colors; only the message bubbles follow the chat theme */}
           <button
             type="submit"
             disabled={!text.trim()}
             aria-label="Send message"
-            className="flex h-10 shrink-0 items-center gap-2 rounded-xl bg-black px-4 text-xs text-white transition-opacity disabled:opacity-40"
+            className={`${accentBtn} flex h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-xs`}
           >
             send
             <CornerDownLeft size={14} />

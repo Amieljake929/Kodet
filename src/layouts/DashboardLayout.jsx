@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
-import GridBackground from "../components/GridBackground";
 import Sidebar from "./Sidebar";
 import DashboardNavbar from "./DashboardNavbar";
 import { getUser, saveUser, clearUser } from "../lib/auth";
@@ -32,9 +31,6 @@ export default function DashboardLayout() {
         fullBleed ? "h-screen overflow-hidden" : "min-h-screen"
       }`}
     >
-      {/* Softer grid so it doesn't compete with the content */}
-      <GridBackground subtle />
-
       <div
         className={`relative z-10 flex ${
           fullBleed ? "h-full" : "min-h-screen"

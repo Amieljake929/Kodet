@@ -1,16 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowLeft,
+  ArrowUpDown,
   Check,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
+  ChevronDown,
+  Copy,
+  Download,
+  Folder,
   FolderPlus,
-  MoreHorizontal,
-  Pencil,
+  PanelLeftClose,
+  PanelLeftOpen,
   Pin,
-  PinOff,
   Plus,
+  Star,
   StickyNote,
   Trash2,
   X,
@@ -21,702 +24,1027 @@ import {
   SearchInput,
   btnDanger,
   btnOutline,
-  btnPrimary,
   fieldClass,
   hoursAgo,
+  timeAgo,
 } from "../shared/pageUi";
 
-/* ------------------------------------------------------------------ */
-/*  Colors: `note` = note card, `folder` = folder tint, `icon` = folder icon */
-/* ------------------------------------------------------------------ */
+/* ------------------------------ shared styles ------------------------------ */
 
-const COLORS = [
-  { id: "yellow", name: "Yellow", note: "#EBE57A", folder: "#FFFBD0", icon: "#DDD35A" },
-  { id: "pink", name: "Pink", note: "#EFA7A7", folder: "#FFD7D2", icon: "#C97B54" },
-  { id: "blue", name: "Blue", note: "#6CB4DE", folder: "#DDEEFF", icon: "#8F8FF5" },
-  { id: "green", name: "Green", note: "#9ED9A8", folder: "#DDF5E2", icon: "#4FB36A" },
-  { id: "purple", name: "Purple", note: "#B9A7E8", folder: "#E8E1FA", icon: "#8A6FD6" },
-  { id: "orange", name: "Orange", note: "#F2B880", folder: "#FFE8D2", icon: "#E08A3C" },
-  { id: "gray", name: "Gray", note: "#D4D4D4", folder: "#EDEDED", icon: "#8A8A8A" },
-];
-const getColor = (id) => COLORS.find((c) => c.id === id) || COLORS[0];
+// Brand button colors: cream #fbf2ef on charcoal #1a1a1a
+const btnAccent =
+  "rounded-xl bg-[#fbf2ef] px-4 py-2.5 text-xs text-[#1a1a1a] transition-opacity hover:opacity-80";
+const accentActive = "bg-[#fbf2ef] text-[#1a1a1a]";
 
-const INK = "#1f1f1f"; // text color on colored cards (always dark)
+const iconBtn =
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-black";
 
-/* ------------------------------------------------------------------ */
-/*  Placeholder content: replace with real data later                  */
-/* ------------------------------------------------------------------ */
+// Slim pill scrollbar (Chrome, Edge, Safari). Firefox keeps its default one.
+const scrollbar =
+  "[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 " +
+  "[&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[#fbf2ef]/5 " +
+  "[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#fbf2ef]/25 " +
+  "hover:[&::-webkit-scrollbar-thumb]:bg-[#fbf2ef]/40";
+
+// Desktop placement: fills the whole main area, below the top bar (70px)
+// and to the right of the app sidebar (16rem). Tweak these two values if
+// there is a gap or overlap in your layout.
+const FULL_BLEED =
+  "lg:fixed lg:bottom-0 lg:left-64 lg:right-0 lg:top-[70px] lg:h-auto lg:min-h-0";
+
+const SORTS = {
+  updated: "Last edited",
+  created: "Date created",
+  title: "Title",
+};
+
+/* ----------------------------- placeholder data ---------------------------- */
+// Placeholder content: replace with real data later
 
 const initialFolders = [
-  { id: "f1", name: "Work", color: "blue", createdAt: hoursAgo(50) },
-  { id: "f2", name: "Study", color: "pink", createdAt: hoursAgo(24 * 3) },
-  { id: "f3", name: "Ideas", color: "yellow", createdAt: hoursAgo(24 * 5) },
-  { id: "f4", name: "Archive", color: "gray", createdAt: hoursAgo(24 * 40) },
+  { id: "f1", name: "Dev cheatsheets" },
+  { id: "f2", name: "Kodet" },
 ];
 
 const initialNotes = [
   {
     id: "n1",
-    title: "Sprint planning",
+    title: "Debounce vs throttle",
+    body: `# Debounce vs throttle
+
+**Debounce** waits until the user stops triggering the event.
+**Throttle** runs at most once per interval.
+
+- Search input: debounce
+- Scroll and resize: throttle
+
+\`\`\`js
+function debounce(fn, delay = 300) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), delay);
+  };
+}
+\`\`\``,
+    tags: ["javascript", "performance"],
     folderId: "f1",
-    color: "yellow",
     pinned: true,
-    updatedAt: hoursAgo(1),
-    body: "Goals for this sprint:\n- Finish the chat UI polish\n- Snippets page with syntax colors\n- Start on collections\n\nBlockers: waiting on the API keys.",
+    favorite: true,
+    createdAt: hoursAgo(120),
+    updatedAt: hoursAgo(2),
   },
   {
     id: "n2",
-    title: "React performance",
-    folderId: "f2",
-    color: "blue",
+    title: "Git rebase cheatsheet",
+    body: `## Common commands
+
+- \`git rebase -i HEAD~3\` squash or reword the last 3 commits
+- \`git rebase --abort\` cancel and go back
+- \`git pull --rebase\` keep history linear
+
+Never rebase commits that are already shared on a public branch.`,
+    tags: ["git"],
+    folderId: "f1",
     pinned: false,
-    updatedAt: hoursAgo(3),
-    body: "1. Memoize expensive lists with useMemo\n2. Split routes with React.lazy\n3. Avoid inline objects in deps arrays\n4. Measure first with the Profiler.",
+    favorite: false,
+    createdAt: hoursAgo(290),
+    updatedAt: hoursAgo(26),
   },
   {
     id: "n3",
-    title: "Design team meeting",
-    folderId: "f1",
-    color: "pink",
+    title: "Sprint planning",
+    body: `Things to build next:
+
+- Snippet sharing with a public link
+- Keyboard shortcuts for quick capture
+- Tag colors
+- Export notes as .md`,
+    tags: ["kodet", "ideas"],
+    folderId: "f2",
     pinned: false,
-    updatedAt: hoursAgo(30),
-    body: "Agreed on a neutral palette with one accent color. Mockups for the dashboard arrive Friday. Ask about dark mode contrast.",
+    favorite: false,
+    createdAt: hoursAgo(480),
+    updatedAt: hoursAgo(96),
   },
   {
     id: "n4",
     title: "Reading list",
-    folderId: "f2",
-    color: "green",
+    body: "Books and articles to get through this month.",
+    tags: [],
+    folderId: null,
     pinned: false,
-    updatedAt: hoursAgo(60),
-    body: "- Refactoring UI\n- A Philosophy of Software Design\n- Designing Data-Intensive Applications",
-  },
-  {
-    id: "n5",
-    title: "Weekend project",
-    folderId: "f3",
-    color: "purple",
-    pinned: false,
-    updatedAt: hoursAgo(24 * 8),
-    body: "Build a tiny CLI that turns a folder of markdown files into a searchable static site.",
-  },
-  {
-    id: "n6",
-    title: "Old roadmap",
-    folderId: "f4",
-    color: "gray",
-    pinned: false,
-    updatedAt: hoursAgo(24 * 40),
-    body: "Q3 roadmap draft. Superseded by the new plan, kept for reference.",
+    favorite: false,
+    createdAt: hoursAgo(600),
+    updatedAt: hoursAgo(200),
   },
 ];
 
-/* ------------------------------------------------------------------ */
-/*  Date helpers                                                       */
-/* ------------------------------------------------------------------ */
+/* --------------------------------- helpers --------------------------------- */
 
-const sameDay = (a, b) => a.toDateString() === b.toDateString();
+const wordCount = (text) => (text.trim() ? text.trim().split(/\s+/).length : 0);
 
-function inRange(ts, tab, monthOffset = 0) {
-  const d = new Date(ts);
-  const now = new Date();
-  if (tab === "today") return sameDay(d, now);
-  if (tab === "week") {
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() - start.getDay());
-    return d >= start;
-  }
-  const target = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
-  return d.getFullYear() === target.getFullYear() && d.getMonth() === target.getMonth();
+const previewText = (body) =>
+  body
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/[#*`>-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/* ------------- tiny, safe markdown renderer (no HTML injection) ------------- */
+
+function renderInline(text) {
+  return text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).map((part, i) => {
+    if (part.length > 2 && part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code key={i} className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[0.9em]">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    if (part.length > 4 && part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
 }
 
-const fmtDate = (ts) =>
-  new Date(ts).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
-
-const fmtStamp = (ts) => {
-  const d = new Date(ts);
-  const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-  return `${time}, ${d.toLocaleDateString("en-US", { weekday: "long" })}`;
+const HEADING_CLASS = {
+  1: "mb-3 mt-6 text-xl first:mt-0",
+  2: "mb-3 mt-6 text-base first:mt-0",
+  3: "mb-2 mt-5 text-sm first:mt-0",
 };
 
-const monthLabel = (offset) =>
-  new Date(new Date().getFullYear(), new Date().getMonth() + offset, 1).toLocaleDateString(
-    "en-US",
-    { month: "long", year: "numeric" }
-  );
+function Markdown({ text }) {
+  const lines = text.split("\n");
+  const blocks = [];
+  let i = 0;
 
-const TABS = [
-  { id: "today", label: "Today" },
-  { id: "week", label: "This Week" },
-  { id: "month", label: "This Month" },
-];
+  while (i < lines.length) {
+    const line = lines[i];
 
-/* ------------------------------------------------------------------ */
-/*  Small pieces                                                       */
-/* ------------------------------------------------------------------ */
+    if (line.startsWith("```")) {
+      const code = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith("```")) {
+        code.push(lines[i]);
+        i++;
+      }
+      i++;
+      blocks.push(
+        <pre
+          key={blocks.length}
+          className={`mb-5 overflow-x-auto rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-xs leading-relaxed ${scrollbar}`}
+        >
+          <code>{code.join("\n")}</code>
+        </pre>
+      );
+      continue;
+    }
 
-function Tabs({ value, onChange }) {
+    const heading = line.match(/^(#{1,3})\s+(.*)/);
+    if (heading) {
+      const level = heading[1].length;
+      const Tag = `h${level}`;
+      blocks.push(
+        <Tag key={blocks.length} className={HEADING_CLASS[level]}>
+          {renderInline(heading[2])}
+        </Tag>
+      );
+      i++;
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^[-*]\s+/, ""));
+        i++;
+      }
+      blocks.push(
+        <ul key={blocks.length} className="mb-5 list-disc space-y-1.5 pl-5">
+          {items.map((item, k) => (
+            <li key={k}>{renderInline(item)}</li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    if (line.trim() === "") {
+      i++;
+      continue;
+    }
+
+    const para = [line];
+    i++;
+    while (
+      i < lines.length &&
+      lines[i].trim() !== "" &&
+      !/^(```|#{1,3}\s|[-*]\s)/.test(lines[i])
+    ) {
+      para.push(lines[i]);
+      i++;
+    }
+    blocks.push(
+      <p key={blocks.length} className="mb-5">
+        {renderInline(para.join(" "))}
+      </p>
+    );
+  }
+
+  return <div className="text-[13px] leading-7">{blocks}</div>;
+}
+
+/* ------------------------- small reusable UI pieces ------------------------ */
+
+// Animated popover menu that closes on outside click or Escape.
+function Dropdown({ renderTrigger, children, align = "left", width = "w-56" }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
-    <div role="tablist" className="flex gap-5">
-      {TABS.map((t) => {
-        const active = value === t.id;
-        return (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(t.id)}
-            className={`relative pb-2 text-xs transition-colors ${
-              active ? "text-black" : "text-neutral-400 hover:text-neutral-600"
-            }`}
+    <div ref={ref} className="relative w-fit">
+      {renderTrigger({ open, toggle: () => setOpen((o) => !o) })}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="menu"
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.12 }}
+            className={`absolute top-full z-30 mt-2 max-h-72 max-w-[calc(100vw-3rem)] overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-xl ${width} ${
+              align === "right" ? "right-0" : "left-0"
+            } ${scrollbar}`}
           >
-            {t.label}
-            {active && (
-              <span className="absolute inset-x-0 bottom-0 mx-auto h-0.5 w-7 rounded-full bg-black" />
-            )}
-          </button>
-        );
-      })}
+            {children({ close: () => setOpen(false) })}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function ColorPicker({ value, onChange, label = "Color" }) {
-  return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2">
-      {COLORS.map((c) => {
-        const active = value === c.id;
-        return (
-          <button
-            key={c.id}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            aria-label={c.name}
-            title={c.name}
-            onClick={() => onChange(c.id)}
-            style={{ backgroundColor: c.note }}
-            className={`flex h-7 w-7 items-center justify-center rounded-full border-2 transition-transform hover:scale-110 ${
-              active ? "border-neutral-500" : "border-transparent"
-            }`}
-          >
-            {active && <Check size={13} color={INK} />}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function DashedCard({ icon: Icon, label, onClick, className = "" }) {
+function MenuItem({ icon: Icon, selected, muted, onClick, children }) {
   return (
     <button
+      role="menuitem"
       onClick={onClick}
-      className={`flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-neutral-300 text-xs text-neutral-600 transition-colors hover:border-neutral-400 hover:bg-neutral-50 ${className}`}
+      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs transition-colors hover:bg-neutral-50 ${
+        selected ? "bg-neutral-100" : ""
+      } ${muted ? "text-neutral-500 hover:text-black" : ""}`}
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-black text-white">
-        <Icon size={16} />
-      </span>
-      {label}
+      {Icon && <Icon size={14} className="shrink-0 text-neutral-500" />}
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      {selected && <Check size={13} className="shrink-0" />}
     </button>
   );
 }
 
-function FolderCard({ folder, count, active, menuOpen, onOpen, onMenu, onRename, onDelete }) {
-  const color = getColor(folder.color);
+// One row of the mini sidebar. Labels hide when the sidebar is collapsed (desktop).
+function NavItem({ icon: Icon, label, count, active, collapsed, muted, onClick }) {
   return (
-    <div className="relative">
-      <button
-        onClick={onOpen}
-        aria-pressed={active}
-        style={{ backgroundColor: color.folder, color: INK }}
-        className={`flex h-[150px] w-full flex-col justify-between rounded-2xl p-4 text-left transition-shadow ${
-          active ? "ring-2 ring-neutral-400" : "hover:shadow-md"
-        }`}
-      >
-        <span
-          style={{ backgroundColor: color.icon }}
-          className="flex h-9 w-9 items-center justify-center rounded-lg"
-        >
-          <StickyNote size={18} color="#fff" />
-        </span>
-        <span>
-          <span className="block truncate text-[15px]">{folder.name}</span>
-          <span className="mt-1 block text-[10px] opacity-60">
-            {fmtDate(folder.createdAt)} · {count} {count === 1 ? "note" : "notes"}
-          </span>
-        </span>
-      </button>
-
-      <div data-menu className="absolute right-3 top-3">
-        <button
-          onClick={onMenu}
-          aria-label={`Options for ${folder.name}`}
-          aria-expanded={menuOpen}
-          style={{ color: INK }}
-          className="rounded-lg p-1 transition-colors hover:bg-black/10"
-        >
-          <MoreHorizontal size={16} />
-        </button>
-        {menuOpen && (
-          <div
-            role="menu"
-            className="absolute right-0 top-full z-10 mt-1 w-36 rounded-xl border border-neutral-200 bg-white p-1 shadow-lg"
-          >
-            <button
-              role="menuitem"
-              onClick={onRename}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-neutral-100"
-            >
-              <Pencil size={12} /> Edit folder
-            </button>
-            <button
-              role="menuitem"
-              onClick={onDelete}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-red-500 transition-colors hover:bg-neutral-100"
-            >
-              <Trash2 size={12} /> Delete
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function NoteCard({ note, onOpen }) {
-  const color = getColor(note.color);
-  return (
-    <motion.button
-      layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.97 }}
-      transition={{ duration: 0.2 }}
-      onClick={onOpen}
-      style={{ backgroundColor: color.note, color: INK }}
-      className="flex h-[240px] flex-col rounded-2xl p-4 text-left transition-shadow hover:shadow-lg"
+    <button
+      onClick={onClick}
+      title={label}
+      aria-current={active ? "page" : undefined}
+      className={`relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs transition-colors ${
+        collapsed ? "lg:justify-center lg:px-0" : ""
+      } ${
+        active
+          ? "bg-neutral-100 text-black"
+          : `${muted ? "text-neutral-400" : "text-neutral-500"} hover:bg-neutral-50 hover:text-black`
+      }`}
     >
-      <span className="flex items-center justify-between text-[10px] opacity-70">
-        {fmtDate(note.updatedAt)}
-        {note.pinned && <Pin size={11} />}
-      </span>
-
-      <span className="mt-2 flex items-center justify-between gap-2">
-        <span className="truncate text-[15px]">{note.title || "Untitled note"}</span>
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-black text-white">
-          <Pencil size={11} />
+      {active && (
+        <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-[#fbf2ef]" />
+      )}
+      <Icon size={15} className="shrink-0" />
+      <span className={`min-w-0 flex-1 truncate ${collapsed ? "lg:hidden" : ""}`}>{label}</span>
+      {count !== undefined && (
+        <span className={`text-[10px] text-neutral-400 ${collapsed ? "lg:hidden" : ""}`}>
+          {count}
         </span>
-      </span>
-
-      <span className="mt-2 border-t border-black/15" />
-
-      <span className="mt-3 line-clamp-6 flex-1 whitespace-pre-line text-[11px] leading-relaxed opacity-70">
-        {note.body || "No content yet."}
-      </span>
-
-      <span className="mt-2 flex items-center gap-1.5 text-[10px] opacity-70">
-        <Clock size={12} />
-        {fmtStamp(note.updatedAt)}
-      </span>
-    </motion.button>
+      )}
+    </button>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Page                                                               */
-/* ------------------------------------------------------------------ */
+/* ----------------------------------- page ---------------------------------- */
 
 export default function Notes() {
   const [notes, setNotes] = useState(initialNotes);
   const [folders, setFolders] = useState(initialFolders);
-
-  const [folderTab, setFolderTab] = useState("month");
-  const [noteTab, setNoteTab] = useState("week");
-  const [monthOffset, setMonthOffset] = useState(0);
-  const [activeFolder, setActiveFolder] = useState(null);
+  const [selectedId, setSelectedId] = useState(initialNotes[0].id);
+  const [showEditor, setShowEditor] = useState(false); // small screens only
   const [query, setQuery] = useState("");
+  const [scope, setScope] = useState("all"); // all | pinned | favorites | folder:<id>
+  const [sort, setSort] = useState("updated");
+  const [mode, setMode] = useState("edit");
+  const [tagDraft, setTagDraft] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  const [editingId, setEditingId] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [folderForm, setFolderForm] = useState(null); // { id?, name, color }
+  const [navCollapsed, setNavCollapsed] = useState(false); // desktop: full sidebar or icon rail
+  const [drawerOpen, setDrawerOpen] = useState(false); // mobile: sidebar as overlay
+
+  const [deleteId, setDeleteId] = useState(null);
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [assignOnCreate, setAssignOnCreate] = useState(false);
+  const [folderName, setFolderName] = useState("");
   const [folderError, setFolderError] = useState("");
-  const [menuId, setMenuId] = useState(null);
   const [deleteFolderId, setDeleteFolderId] = useState(null);
 
-  // Close the folder menu when clicking elsewhere
-  useEffect(() => {
-    const onDown = (e) => !e.target.closest?.("[data-menu]") && setMenuId(null);
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, []);
+  const selected = notes.find((n) => n.id === selectedId) || null;
+  const currentFolder = selected ? folders.find((f) => f.id === selected.folderId) : null;
+  const activeFolder = scope.startsWith("folder:")
+    ? folders.find((f) => f.id === scope.slice(7)) || null
+    : null;
 
-  const editing = notes.find((n) => n.id === editingId) || null;
-  const activeFolderObj = folders.find((f) => f.id === activeFolder) || null;
+  const scopeLabel = activeFolder
+    ? activeFolder.name
+    : { all: "All notes", pinned: "Pinned", favorites: "Favorites" }[scope] || "All notes";
 
-  const visibleFolders = useMemo(
-    () =>
-      folders
-        .filter((f) => inRange(f.createdAt, folderTab, 0))
-        .sort((a, b) => b.createdAt - a.createdAt),
-    [folders, folderTab]
-  );
+  const views = [
+    { id: "all", label: "All notes", icon: StickyNote, count: notes.length },
+    { id: "pinned", label: "Pinned", icon: Pin, count: notes.filter((n) => n.pinned).length },
+    { id: "favorites", label: "Favorites", icon: Star, count: notes.filter((n) => n.favorite).length },
+  ];
 
-  const visibleNotes = useMemo(() => {
-    const q = query.trim().toLowerCase();
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase().replace(/^#/, "");
     return notes
-      .filter((n) => inRange(n.updatedAt, noteTab, monthOffset))
-      .filter((n) => !activeFolder || n.folderId === activeFolder)
-      .filter((n) => !q || `${n.title} ${n.body}`.toLowerCase().includes(q))
-      .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt);
-  }, [notes, noteTab, monthOffset, activeFolder, query]);
+      .filter((n) => {
+        if (scope === "pinned" && !n.pinned) return false;
+        if (scope === "favorites" && !n.favorite) return false;
+        if (scope.startsWith("folder:") && n.folderId !== scope.slice(7)) return false;
+        if (!q) return true;
+        return `${n.title} ${n.body} ${n.tags.join(" ")}`.toLowerCase().includes(q);
+      })
+      .sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        if (sort === "title") return a.title.localeCompare(b.title);
+        if (sort === "created") return b.createdAt - a.createdAt;
+        return b.updatedAt - a.updatedAt;
+      });
+  }, [notes, query, scope, sort]);
 
-  const countIn = (fid) => notes.filter((n) => n.folderId === fid).length;
+  /* ------------------------------- note actions ------------------------------ */
 
-  /* ---------- notes ---------- */
+  // patchNote: metadata only (pin, favorite, folder), keeps "last edited"
+  const patchNote = (id, patch) =>
+    setNotes((all) => all.map((n) => (n.id === id ? { ...n, ...patch } : n)));
 
-  const updateNote = (id, patch) =>
-    setNotes((all) => all.map((n) => (n.id === id ? { ...n, ...patch, updatedAt: Date.now() } : n)));
+  // updateNote: real content edit, bumps "last edited"
+  const updateNote = (id, patch) => patchNote(id, { ...patch, updatedAt: Date.now() });
 
-  const newNote = () => {
+  const selectNote = (id) => {
+    setSelectedId(id);
+    setShowEditor(true);
+  };
+
+  const pickScope = (next) => {
+    setScope(next);
+    setShowEditor(false);
+    setDrawerOpen(false);
+  };
+
+  const createNote = () => {
     const note = {
       id: `n${Date.now()}`,
       title: "",
       body: "",
-      folderId: activeFolder,
-      color: COLORS[notes.length % COLORS.length].id,
+      tags: [],
+      folderId: activeFolder?.id ?? null,
       pinned: false,
+      favorite: false,
+      createdAt: Date.now(),
       updatedAt: Date.now(),
     };
     setNotes((all) => [note, ...all]);
-    setNoteTab("week");
-    setMonthOffset(0);
     setQuery("");
-    setConfirmDelete(false);
-    setEditingId(note.id);
-  };
-
-  const closeEditor = () => {
-    // Discard notes that were never written
-    if (editing && !editing.title.trim() && !editing.body.trim()) {
-      setNotes((all) => all.filter((n) => n.id !== editing.id));
-    }
-    setEditingId(null);
-    setConfirmDelete(false);
+    if (!activeFolder) setScope("all");
+    setMode("edit");
+    setDrawerOpen(false);
+    selectNote(note.id);
   };
 
   const deleteNote = () => {
-    setNotes((all) => all.filter((n) => n.id !== editingId));
-    setEditingId(null);
-    setConfirmDelete(false);
-  };
-
-  /* ---------- folders ---------- */
-
-  const openFolderForm = (folder) => {
-    setFolderError("");
-    setMenuId(null);
-    setFolderForm(
-      folder
-        ? { id: folder.id, name: folder.name, color: folder.color }
-        : { name: "", color: COLORS[folders.length % COLORS.length].id }
-    );
-  };
-
-  const saveFolder = () => {
-    const name = folderForm.name.trim();
-    if (!name) return setFolderError("Give your folder a name.");
-    if (folderForm.id) {
-      setFolders((all) =>
-        all.map((f) => (f.id === folderForm.id ? { ...f, name, color: folderForm.color } : f))
-      );
-    } else {
-      setFolders((all) => [
-        { id: `f${Date.now()}`, name, color: folderForm.color, createdAt: Date.now() },
-        ...all,
-      ]);
-      setFolderTab("week");
+    const remaining = notes.filter((n) => n.id !== deleteId);
+    setNotes(remaining);
+    if (selectedId === deleteId) {
+      setSelectedId(remaining[0]?.id ?? null);
+      setShowEditor(false);
     }
-    setFolderForm(null);
+    setDeleteId(null);
+  };
+
+  const addTag = (raw) => {
+    const tag = raw.trim().replace(/^#/, "").toLowerCase();
+    if (!tag || !selected || selected.tags.includes(tag)) return;
+    updateNote(selected.id, { tags: [...selected.tags, tag] });
+  };
+
+  const removeTag = (tag) =>
+    updateNote(selected.id, { tags: selected.tags.filter((t) => t !== tag) });
+
+  const onTagKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addTag(tagDraft);
+      setTagDraft("");
+    } else if (e.key === "Backspace" && !tagDraft && selected.tags.length) {
+      removeTag(selected.tags[selected.tags.length - 1]);
+    }
+  };
+
+  const copyNote = async () => {
+    try {
+      await navigator.clipboard.writeText(selected.body);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      // clipboard can be blocked by the browser, ignore
+    }
+  };
+
+  const exportNote = () => {
+    const name = (selected.title || "untitled").replace(/[^\w-]+/g, "-");
+    const blob = new Blob([`# ${selected.title || "Untitled"}\n\n${selected.body}`], {
+      type: "text/markdown",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${name}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  /* ------------------------------ folder actions ----------------------------- */
+
+  // assign = true when opened from a note's folder menu: the note moves into the new folder
+  const openFolderModal = (assign = false) => {
+    setDrawerOpen(false);
+    setAssignOnCreate(assign);
+    setFolderName("");
+    setFolderError("");
+    setCreatingFolder(true);
+  };
+
+  const createFolder = () => {
+    const name = folderName.trim();
+    if (!name) return setFolderError("Give your folder a name.");
+    if (folders.some((f) => f.name.toLowerCase() === name.toLowerCase())) {
+      return setFolderError("A folder with this name already exists.");
+    }
+    const folder = { id: `f${Date.now()}`, name };
+    setFolders((all) => [...all, folder]);
+    if (assignOnCreate && selected) patchNote(selected.id, { folderId: folder.id });
+    else pickScope(`folder:${folder.id}`);
+    setCreatingFolder(false);
   };
 
   const deleteFolder = () => {
-    setNotes((all) => all.map((n) => (n.folderId === deleteFolderId ? { ...n, folderId: null } : n)));
+    // notes are kept, they just move back to "No folder"
+    setNotes((all) =>
+      all.map((n) => (n.folderId === deleteFolderId ? { ...n, folderId: null } : n))
+    );
     setFolders((all) => all.filter((f) => f.id !== deleteFolderId));
-    if (activeFolder === deleteFolderId) setActiveFolder(null);
+    if (scope === `folder:${deleteFolderId}`) pickScope("all");
     setDeleteFolderId(null);
   };
 
-  /* ---------- month navigation ---------- */
-
-  const prevMonth = () => {
-    setMonthOffset((o) => (noteTab === "month" ? o - 1 : -1));
-    setNoteTab("month");
-  };
-  const nextMonth = () => setMonthOffset((o) => Math.min(0, o + 1));
-  const canNext = noteTab === "month" && monthOffset < 0;
+  /* ---------------------------------- render --------------------------------- */
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-      {/* ---------------- Recent folders ---------------- */}
-      <section>
-        <h1 className="text-lg">Recent Folders</h1>
-        <div className="mt-3">
-          <Tabs value={folderTab} onChange={setFolderTab} />
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {visibleFolders.map((f) => (
-            <FolderCard
-              key={f.id}
-              folder={f}
-              count={countIn(f.id)}
-              active={activeFolder === f.id}
-              menuOpen={menuId === f.id}
-              onOpen={() => setActiveFolder((cur) => (cur === f.id ? null : f.id))}
-              onMenu={() => setMenuId((cur) => (cur === f.id ? null : f.id))}
-              onRename={() => openFolderForm(f)}
-              onDelete={() => {
-                setMenuId(null);
-                setDeleteFolderId(f.id);
-              }}
-            />
-          ))}
-          <DashedCard
-            icon={FolderPlus}
-            label="New folder"
-            onClick={() => openFolderForm(null)}
-            className="h-[150px]"
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className={`relative grid h-[calc(100vh-12rem)] min-h-[520px] grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden lg:grid-cols-[auto_300px_minmax(0,1fr)] ${FULL_BLEED}`}
+      >
+        {/* mobile backdrop for the sidebar drawer */}
+        {drawerOpen && (
+          <button
+            aria-label="Close menu"
+            onClick={() => setDrawerOpen(false)}
+            className="absolute inset-0 z-20 bg-black/50 lg:hidden"
           />
-        </div>
-      </section>
-
-      {/* ---------------- My notes ---------------- */}
-      <section className="mt-10">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg">My Notes</h2>
-          <SearchInput
-            value={query}
-            onChange={setQuery}
-            placeholder="Search notes"
-            className="w-full sm:w-64"
-          />
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-          <Tabs
-            value={noteTab}
-            onChange={(t) => {
-              setNoteTab(t);
-              setMonthOffset(0);
-            }}
-          />
-
-          <div className="flex items-center gap-1 pb-1.5 text-[11px] text-neutral-500">
-            <button
-              onClick={prevMonth}
-              aria-label="Previous month"
-              className="rounded-md p-1 transition-colors hover:bg-neutral-100 hover:text-black"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <span className="min-w-[100px] text-center">
-              {monthLabel(noteTab === "month" ? monthOffset : 0)}
-            </span>
-            <button
-              onClick={nextMonth}
-              disabled={!canNext}
-              aria-label="Next month"
-              className="rounded-md p-1 transition-colors hover:bg-neutral-100 hover:text-black disabled:opacity-30 disabled:hover:bg-transparent"
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-
-        {activeFolderObj && (
-          <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-neutral-200 py-1 pl-3 pr-1.5 text-[11px] text-neutral-600">
-            Folder: {activeFolderObj.name}
-            <button
-              onClick={() => setActiveFolder(null)}
-              aria-label="Clear folder filter"
-              className="rounded-full p-0.5 transition-colors hover:bg-neutral-100"
-            >
-              <X size={12} />
-            </button>
-          </p>
         )}
 
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <AnimatePresence mode="popLayout">
-            {visibleNotes.map((n) => (
-              <NoteCard
-                key={n.id}
-                note={n}
-                onOpen={() => {
-                  setConfirmDelete(false);
-                  setEditingId(n.id);
-                }}
+        {/* ------------------------------- mini sidebar ------------------------------ */}
+        <aside
+          className={`${
+            drawerOpen ? "absolute inset-y-0 left-0 z-30 flex w-60 shadow-2xl" : "hidden"
+          } min-h-0 flex-col border-r border-neutral-200 bg-white lg:static lg:z-auto lg:flex lg:bg-transparent lg:shadow-none lg:transition-[width] lg:duration-200 ${
+            navCollapsed ? "lg:w-[60px]" : "lg:w-56"
+          }`}
+        >
+          <div
+            className={`flex h-16 shrink-0 items-center justify-between border-b border-neutral-200 px-4 ${
+              navCollapsed ? "lg:justify-center lg:px-0" : ""
+            }`}
+          >
+            <span className={`text-sm ${navCollapsed ? "lg:hidden" : ""}`}>Notes</span>
+            <button
+              onClick={() => setDrawerOpen(false)}
+              aria-label="Close menu"
+              className={`${iconBtn} lg:hidden`}
+            >
+              <X size={15} />
+            </button>
+            <button
+              onClick={() => setNavCollapsed((c) => !c)}
+              aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className={`${iconBtn} hidden lg:flex`}
+            >
+              {navCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+            </button>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-4 p-3">
+          <button
+            onClick={createNote}
+            title="New note"
+            className="flex items-center justify-center gap-2 rounded-xl bg-[#fbf2ef] py-2.5 text-xs text-[#1a1a1a] transition-opacity hover:opacity-80"
+          >
+            <Plus size={15} className="shrink-0" />
+            <span className={navCollapsed ? "lg:hidden" : ""}>New note</span>
+          </button>
+
+          <nav
+            className={`-mx-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-1 ${scrollbar}`}
+          >
+            {views.map((v) => (
+              <NavItem
+                key={v.id}
+                icon={v.icon}
+                label={v.label}
+                count={v.count}
+                active={scope === v.id}
+                collapsed={navCollapsed}
+                onClick={() => pickScope(v.id)}
               />
             ))}
-          </AnimatePresence>
-          <DashedCard icon={Plus} label="New Note" onClick={newNote} className="h-[240px]" />
-        </div>
 
-        {visibleNotes.length === 0 && (
-          <div className="mt-4">
-            <EmptyState
-              icon={StickyNote}
-              title="No notes here"
-              text="Nothing matches this period, folder or search. Try another tab or create a new note."
+            <div className="my-3 border-t border-neutral-200" />
+            <p className={`px-3 pb-1 text-[10px] text-neutral-400 ${navCollapsed ? "lg:hidden" : ""}`}>
+              Folders
+            </p>
+
+            {folders.length === 0 && (
+              <p className={`px-3 py-1 text-[11px] text-neutral-500 ${navCollapsed ? "lg:hidden" : ""}`}>
+                No folders yet.
+              </p>
+            )}
+
+            {folders.map((f) => (
+              <NavItem
+                key={f.id}
+                icon={Folder}
+                label={f.name}
+                count={notes.filter((n) => n.folderId === f.id).length}
+                active={scope === `folder:${f.id}`}
+                collapsed={navCollapsed}
+                onClick={() => pickScope(`folder:${f.id}`)}
+              />
+            ))}
+
+            <NavItem
+              icon={FolderPlus}
+              label="New folder"
+              muted
+              collapsed={navCollapsed}
+              onClick={() => openFolderModal()}
             />
+          </nav>
           </div>
-        )}
-      </section>
+        </aside>
 
-      {/* ---------------- Modals ---------------- */}
-      <AnimatePresence>
-        {editing && (
-          <Modal
-            key="editor"
-            title={editing.title.trim() || "New note"}
-            subtitle={`Edited ${fmtStamp(editing.updatedAt)}`}
-            icon={Pencil}
-            maxWidth="max-w-2xl"
-            onClose={closeEditor}
-            footer={
-              <>
-                {confirmDelete ? (
-                  <div className="mr-auto flex items-center gap-2">
-                    <span className="text-[11px] text-neutral-500">Delete this note?</span>
-                    <button onClick={deleteNote} className={btnDanger}>
-                      Yes, delete
-                    </button>
-                    <button onClick={() => setConfirmDelete(false)} className={btnOutline}>
-                      No
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setConfirmDelete(true)}
-                    className={`${btnOutline} mr-auto flex items-center gap-1.5 hover:text-red-500`}
-                  >
-                    <Trash2 size={12} /> Delete
-                  </button>
-                )}
+        {/* ----------------------------------- list ---------------------------------- */}
+        <section
+          className={`min-h-0 min-w-0 flex-col lg:flex lg:border-r lg:border-neutral-200 ${
+            showEditor ? "hidden" : "flex"
+          }`}
+        >
+          <div className="shrink-0">
+            <div className="flex h-16 items-center justify-between gap-2 border-b border-neutral-200 px-4">
+              <div className="flex min-w-0 items-center gap-2">
                 <button
-                  onClick={() => updateNote(editing.id, { pinned: !editing.pinned })}
-                  aria-pressed={editing.pinned}
-                  className={`${btnOutline} flex items-center gap-1.5`}
+                  onClick={() => setDrawerOpen(true)}
+                  aria-label="Open menu"
+                  className={`${iconBtn} lg:hidden`}
                 >
-                  {editing.pinned ? <PinOff size={12} /> : <Pin size={12} />}
-                  {editing.pinned ? "Unpin" : "Pin"}
+                  <PanelLeftOpen size={15} />
                 </button>
-                <button onClick={closeEditor} className={btnPrimary}>
-                  Done
-                </button>
-              </>
-            }
-          >
-            <input
-              autoFocus
-              value={editing.title}
-              onChange={(e) => updateNote(editing.id, { title: e.target.value })}
-              placeholder="Title"
-              aria-label="Note title"
-              maxLength={60}
-              className="w-full bg-transparent text-lg outline-none placeholder:text-neutral-400"
-            />
-            <textarea
-              value={editing.body}
-              onChange={(e) => updateNote(editing.id, { body: e.target.value })}
-              placeholder="Start writing…"
-              aria-label="Note body"
-              rows={9}
-              className="mt-3 w-full resize-none rounded-xl border border-neutral-200 bg-transparent p-3.5 text-[13px] leading-relaxed outline-none placeholder:text-neutral-400 focus:border-black"
-            />
-
-            <div className="mt-5 grid gap-5 sm:grid-cols-2">
-              <div>
-                <span className="mb-2 block text-[11px] text-neutral-500">Note color</span>
-                <ColorPicker
-                  value={editing.color}
-                  onChange={(c) => updateNote(editing.id, { color: c })}
-                  label="Note color"
-                />
-              </div>
-              <div>
-                <span className="mb-2 block text-[11px] text-neutral-500">Folder</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {[{ id: null, name: "None" }, ...folders].map((f) => (
-                    <button
-                      key={f.id ?? "none"}
-                      type="button"
-                      aria-pressed={editing.folderId === f.id}
-                      onClick={() => updateNote(editing.id, { folderId: f.id })}
-                      className={`rounded-full border px-3 py-1 text-[11px] transition-colors ${
-                        editing.folderId === f.id
-                          ? "border-black bg-black text-white"
-                          : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                      }`}
-                    >
-                      {f.name}
-                    </button>
-                  ))}
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm">{scopeLabel}</h2>
+                  <p className="text-[11px] text-neutral-500">
+                    {visible.length} {visible.length === 1 ? "note" : "notes"}
+                  </p>
                 </div>
               </div>
-            </div>
-          </Modal>
-        )}
 
-        {folderForm && (
+              <div className="flex items-center gap-1">
+                {activeFolder && (
+                  <button
+                    onClick={() => setDeleteFolderId(activeFolder.id)}
+                    title="Delete folder"
+                    aria-label="Delete folder"
+                    className={iconBtn}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
+
+                <Dropdown
+                  align="right"
+                  width="w-44"
+                  renderTrigger={({ open, toggle }) => (
+                    <button
+                      onClick={toggle}
+                      aria-haspopup="menu"
+                      aria-expanded={open}
+                      title={`Sort by: ${SORTS[sort]}`}
+                      aria-label="Sort notes"
+                      className={`${iconBtn} ${open ? "bg-neutral-100 text-black" : ""}`}
+                    >
+                      <ArrowUpDown size={15} />
+                    </button>
+                  )}
+                >
+                  {({ close }) => (
+                    <>
+                      <p className="px-3 pb-1 pt-1.5 text-[10px] text-neutral-400">Sort by</p>
+                      {Object.entries(SORTS).map(([id, label]) => (
+                        <MenuItem
+                          key={id}
+                          selected={sort === id}
+                          onClick={() => {
+                            setSort(id);
+                            close();
+                          }}
+                        >
+                          {label}
+                        </MenuItem>
+                      ))}
+                    </>
+                  )}
+                </Dropdown>
+
+                <button
+                  onClick={createNote}
+                  aria-label="New note"
+                  className={`${iconBtn} ${accentActive} lg:hidden`}
+                >
+                  <Plus size={15} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3">
+              <SearchInput value={query} onChange={setQuery} placeholder="Search notes" />
+            </div>
+          </div>
+
+          <div className={`min-h-0 flex-1 overflow-y-auto px-2 pb-2 ${scrollbar}`}>
+            {visible.length === 0 ? (
+              <p className="px-4 py-12 text-center text-xs leading-relaxed text-neutral-500">
+                {notes.length === 0
+                  ? "No notes yet. Create your first one."
+                  : activeFolder && !query
+                    ? "This folder is empty."
+                    : "No notes found."}
+              </p>
+            ) : (
+              <ul className="space-y-1">
+                {visible.map((n) => {
+                  const folder = folders.find((f) => f.id === n.folderId);
+                  return (
+                    <li key={n.id}>
+                      <button
+                        onClick={() => selectNote(n.id)}
+                        className={`flex w-full flex-col gap-1.5 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-neutral-50 ${
+                          n.id === selectedId ? "bg-neutral-100" : ""
+                        }`}
+                      >
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="truncate text-[13px]">{n.title || "Untitled"}</span>
+                          <span className="flex shrink-0 items-center gap-1.5 text-neutral-400">
+                            {n.pinned && <Pin size={11} className="fill-current" />}
+                            {n.favorite && <Star size={11} className="fill-current" />}
+                          </span>
+                        </span>
+                        <span className="line-clamp-1 text-[11px] text-neutral-500">
+                          {previewText(n.body) || "No content yet"}
+                        </span>
+                        <span className="flex items-center gap-3 text-[10px] text-neutral-400">
+                          <span>{timeAgo(n.updatedAt)}</span>
+                          {folder && !activeFolder && (
+                            <span className="flex min-w-0 items-center gap-1">
+                              <Folder size={10} className="shrink-0" />
+                              <span className="truncate">{folder.name}</span>
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        {/* ---------------------------------- editor --------------------------------- */}
+        <section
+          className={`min-h-0 min-w-0 flex-col lg:flex ${showEditor ? "flex" : "hidden"}`}
+        >
+          {!selected ? (
+            <div className="flex flex-1 items-center justify-center p-6">
+              <EmptyState
+                icon={StickyNote}
+                title="No note selected"
+                text="Pick a note from the list or create a new one."
+              />
+            </div>
+          ) : (
+            <>
+              <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-neutral-200 px-5">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowEditor(false)}
+                    aria-label="Back to notes"
+                    className={`${iconBtn} lg:hidden`}
+                  >
+                    <ArrowLeft size={15} />
+                  </button>
+                  <div className="inline-flex rounded-xl border border-neutral-200 p-0.5" role="tablist">
+                    {["edit", "preview"].map((m) => (
+                      <button
+                        key={m}
+                        role="tab"
+                        aria-selected={mode === m}
+                        onClick={() => setMode(m)}
+                        className={`rounded-lg px-3.5 py-1 text-xs capitalize transition-colors ${
+                          mode === m ? accentActive : "text-neutral-500 hover:text-black"
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => patchNote(selected.id, { pinned: !selected.pinned })}
+                    aria-pressed={selected.pinned}
+                    title={selected.pinned ? "Unpin" : "Pin to top"}
+                    className={`${iconBtn} ${selected.pinned ? accentActive : ""}`}
+                  >
+                    <Pin size={15} className={selected.pinned ? "fill-current" : ""} />
+                  </button>
+                  <button
+                    onClick={() => patchNote(selected.id, { favorite: !selected.favorite })}
+                    aria-pressed={selected.favorite}
+                    title={selected.favorite ? "Remove from favorites" : "Add to favorites"}
+                    className={`${iconBtn} ${selected.favorite ? accentActive : ""}`}
+                  >
+                    <Star size={15} className={selected.favorite ? "fill-current" : ""} />
+                  </button>
+                  <span className="mx-1.5 h-4 w-px bg-neutral-200" />
+                  <button onClick={copyNote} title="Copy content" aria-label="Copy content" className={iconBtn}>
+                    {copied ? <Check size={15} /> : <Copy size={15} />}
+                  </button>
+                  <button onClick={exportNote} title="Export as .md" aria-label="Export as Markdown" className={iconBtn}>
+                    <Download size={15} />
+                  </button>
+                  <span className="mx-1.5 h-4 w-px bg-neutral-200" />
+                  <button
+                    onClick={() => setDeleteId(selected.id)}
+                    title="Delete note"
+                    aria-label="Delete note"
+                    className={iconBtn}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </header>
+
+              <div className={`min-h-0 flex-1 overflow-y-auto ${scrollbar}`}>
+                <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-5 px-6 py-8 sm:px-10">
+                  <input
+                    value={selected.title}
+                    onChange={(e) => updateNote(selected.id, { title: e.target.value })}
+                    placeholder="Untitled"
+                    aria-label="Note title"
+                    className="w-full bg-transparent text-2xl outline-none placeholder:text-neutral-400"
+                  />
+
+                  <div className="flex flex-col items-start gap-3">
+                    <Dropdown
+                      renderTrigger={({ open, toggle }) => (
+                        <button
+                          onClick={toggle}
+                          aria-haspopup="menu"
+                          aria-expanded={open}
+                          className={`flex items-center gap-2 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs transition-colors hover:bg-neutral-50 hover:text-black ${
+                            open ? "bg-neutral-50 text-black" : "text-neutral-500"
+                          }`}
+                        >
+                          <Folder size={13} className="shrink-0" />
+                          <span className="max-w-[180px] truncate">
+                            {currentFolder?.name ?? "No folder"}
+                          </span>
+                          <ChevronDown
+                            size={13}
+                            className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+                          />
+                        </button>
+                      )}
+                    >
+                      {({ close }) => (
+                        <>
+                          <p className="px-3 pb-1 pt-1.5 text-[10px] text-neutral-400">Move to</p>
+                          <MenuItem
+                            icon={Folder}
+                            selected={!currentFolder}
+                            onClick={() => {
+                              patchNote(selected.id, { folderId: null });
+                              close();
+                            }}
+                          >
+                            No folder
+                          </MenuItem>
+                          {folders.map((f) => (
+                            <MenuItem
+                              key={f.id}
+                              icon={Folder}
+                              selected={currentFolder?.id === f.id}
+                              onClick={() => {
+                                patchNote(selected.id, { folderId: f.id });
+                                close();
+                              }}
+                            >
+                              {f.name}
+                            </MenuItem>
+                          ))}
+                          <div className="my-1.5 border-t border-neutral-200" />
+                          <MenuItem
+                            icon={FolderPlus}
+                            muted
+                            onClick={() => {
+                              close();
+                              openFolderModal(true);
+                            }}
+                          >
+                            New folder
+                          </MenuItem>
+                        </>
+                      )}
+                    </Dropdown>
+
+                    <div className="flex w-full flex-wrap items-center gap-2">
+                      {selected.tags.map((t) => (
+                        <span
+                          key={t}
+                          className="flex items-center gap-1 rounded-lg border border-neutral-200 py-0.5 pl-2.5 pr-1.5 text-[11px] text-neutral-500"
+                        >
+                          {t}
+                          <button
+                            onClick={() => removeTag(t)}
+                            aria-label={`Remove tag ${t}`}
+                            className="px-0.5 text-sm leading-none text-neutral-400 hover:text-black"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        value={tagDraft}
+                        onChange={(e) => setTagDraft(e.target.value)}
+                        onKeyDown={onTagKeyDown}
+                        onBlur={() => {
+                          addTag(tagDraft);
+                          setTagDraft("");
+                        }}
+                        placeholder="Add a tag"
+                        aria-label="Add tag"
+                        className="min-w-[90px] flex-1 bg-transparent py-1 text-[11px] outline-none placeholder:text-neutral-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-neutral-200" />
+
+                  {mode === "edit" ? (
+                    <textarea
+                      value={selected.body}
+                      onChange={(e) => updateNote(selected.id, { body: e.target.value })}
+                      placeholder="Start writing. Markdown is supported."
+                      spellCheck={false}
+                      aria-label="Note content"
+                      className={`min-h-[280px] w-full flex-1 resize-none bg-transparent text-[13px] leading-7 outline-none placeholder:text-neutral-400 ${scrollbar}`}
+                    />
+                  ) : selected.body.trim() ? (
+                    <Markdown text={selected.body} />
+                  ) : (
+                    <p className="text-xs text-neutral-500">Nothing to preview yet.</p>
+                  )}
+                </div>
+              </div>
+
+              <footer className="flex items-center justify-between border-t border-neutral-200 px-5 py-3 text-[10px] text-neutral-400">
+                <span>{wordCount(selected.body)} words</span>
+                <span>Edited {timeAgo(selected.updatedAt)}</span>
+              </footer>
+            </>
+          )}
+        </section>
+      </motion.div>
+
+      <AnimatePresence>
+        {creatingFolder && (
           <Modal
-            key="folder"
-            title={folderForm.id ? "Edit folder" : "New folder"}
-            subtitle="Folders keep related notes together."
+            key="create-folder"
+            title="New folder"
+            subtitle={
+              assignOnCreate && selected
+                ? "This note will move into the new folder."
+                : "Group related notes together."
+            }
             icon={FolderPlus}
-            onClose={() => setFolderForm(null)}
+            onClose={() => setCreatingFolder(false)}
             footer={
               <>
                 {folderError && <p className="mr-auto text-[11px] text-red-500">{folderError}</p>}
-                <button onClick={() => setFolderForm(null)} className={btnOutline}>
+                <button onClick={() => setCreatingFolder(false)} className={btnOutline}>
                   Cancel
                 </button>
-                <button onClick={saveFolder} className={btnPrimary}>
-                  {folderForm.id ? "Save" : "Create"}
+                <button onClick={createFolder} className={btnAccent}>
+                  Create
                 </button>
               </>
             }
           >
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="folder-name" className="mb-1.5 block text-[11px] text-neutral-500">
-                  Name
-                </label>
-                <input
-                  id="folder-name"
-                  autoFocus
-                  value={folderForm.name}
-                  maxLength={30}
-                  onChange={(e) => {
-                    setFolderForm({ ...folderForm, name: e.target.value });
-                    setFolderError("");
-                  }}
-                  onKeyDown={(e) => e.key === "Enter" && saveFolder()}
-                  placeholder="e.g. Movie Review"
-                  className={fieldClass}
-                />
-              </div>
-              <div>
-                <span className="mb-2 block text-[11px] text-neutral-500">Color</span>
-                <ColorPicker
-                  value={folderForm.color}
-                  onChange={(c) => setFolderForm({ ...folderForm, color: c })}
-                  label="Folder color"
-                />
-              </div>
-            </div>
+            <label htmlFor="folder-name" className="mb-1.5 block text-[11px] text-neutral-500">
+              Name
+            </label>
+            <input
+              id="folder-name"
+              autoFocus
+              value={folderName}
+              maxLength={40}
+              onChange={(e) => {
+                setFolderName(e.target.value);
+                setFolderError("");
+              }}
+              onKeyDown={(e) => e.key === "Enter" && createFolder()}
+              placeholder="e.g. Meeting notes"
+              className={fieldClass}
+            />
+          </Modal>
+        )}
+
+        {deleteId && (
+          <Modal
+            key="delete-note"
+            title="Delete this note?"
+            subtitle="This can't be undone."
+            icon={Trash2}
+            onClose={() => setDeleteId(null)}
+            footer={
+              <>
+                <button onClick={() => setDeleteId(null)} className={btnOutline}>
+                  Cancel
+                </button>
+                <button onClick={deleteNote} className={btnDanger}>
+                  Delete
+                </button>
+              </>
+            }
+          >
+            <p className="text-xs leading-relaxed text-neutral-500">
+              “{notes.find((n) => n.id === deleteId)?.title || "Untitled"}” will be removed.
+            </p>
           </Modal>
         )}
 
@@ -724,7 +1052,7 @@ export default function Notes() {
           <Modal
             key="delete-folder"
             title="Delete this folder?"
-            subtitle="Its notes are kept."
+            subtitle="Its notes are not deleted."
             icon={Trash2}
             onClose={() => setDeleteFolderId(null)}
             footer={
@@ -739,12 +1067,12 @@ export default function Notes() {
             }
           >
             <p className="text-xs leading-relaxed text-neutral-500">
-              “{folders.find((f) => f.id === deleteFolderId)?.name}” will be removed. Notes inside it
-              stay in My Notes without a folder.
+              “{folders.find((f) => f.id === deleteFolderId)?.name}” will be removed and its notes
+              will move to No folder.
             </p>
           </Modal>
         )}
       </AnimatePresence>
-    </motion.div>
+    </>
   );
 }
